@@ -2,26 +2,38 @@ package com.example.myapplication;
 
 import android.Manifest;
 import android.content.ContentValues;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.BaseAdapter;
 import android.widget.Button;
 import android.widget.GridView;
+import android.widget.ImageView;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+import androidx.documentfile.provider.DocumentFile;
+
+import java.util.ArrayList;
 
 public class MainActivity extends AppCompatActivity {
 
+    //Variables
     private GridView photoGrid;
-    private Uri newImageUri; // Path where the camera will save the photo
+    private Uri newImageUri;
 
-    // 1. The camera result receiver
+    private ArrayList<Uri> imageList = new ArrayList<>();
+    private ImageAdapter gridAdapter;
+
+    // Camera result receiver
     private final ActivityResultLauncher<Intent> cameraLauncher = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
             result -> {
@@ -33,14 +45,22 @@ public class MainActivity extends AppCompatActivity {
             }
     );
 
-    // 2. The permission request receiver
+    // Permission request receiver
     private final ActivityResultLauncher<String> requestCamPermission = registerForActivityResult(
             new ActivityResultContracts.RequestPermission(),
             isGranted -> {
-                if (isGranted) {
-                    launchCamera();
-                } else {
-                    Toast.makeText(this, "Camera permission is required to take photos", Toast.LENGTH_LONG).show();
+                if (isGranted) launchCamera();
+                else Toast.makeText(this, "Camera permission is required", Toast.LENGTH_LONG).show();
+            }
+    );
+
+    // Folder picker receiver
+    private final ActivityResultLauncher<Intent> folderPickerLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                    Uri treeUri = result.getData().getData();
+                    loadImagesFromFolder(treeUri);
                 }
             }
     );
@@ -54,30 +74,94 @@ public class MainActivity extends AppCompatActivity {
         Button btnPickFolder = findViewById(R.id.btnPickFolder);
         Button btnOpenCam = findViewById(R.id.btnOpenCam);
 
-        // Take Photo Logic
+        // Connect the adapter to the grid
+        gridAdapter = new ImageAdapter(this, imageList);
+        photoGrid.setAdapter(gridAdapter);
+
+        // Take Photo Button
         btnOpenCam.setOnClickListener(v -> {
-            // Check if we already have permission
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
                 launchCamera();
             } else {
-                // Ask the user for permission
                 requestCamPermission.launch(Manifest.permission.CAMERA);
             }
         });
+
+        // --- PART B: Pick Folder Button ---
+        btnPickFolder.setOnClickListener(v -> {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+            folderPickerLauncher.launch(intent);
+        });
     }
 
-    // Helper method to safely open the camera and where to save the file
     private void launchCamera() {
-        // Tell Android to prepare a secure file path in the device's main media storage
         ContentValues values = new ContentValues();
         values.put(MediaStore.Images.Media.TITLE, "New App Photo");
         values.put(MediaStore.Images.Media.DESCRIPTION, "Taken from My Gallery App");
-
         newImageUri = getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
 
-        // Launch the camera and pass the file path to it
         Intent cameraIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
         cameraIntent.putExtra(MediaStore.EXTRA_OUTPUT, newImageUri);
         cameraLauncher.launch(cameraIntent);
+    }
+
+    // Helper method to read the selected folder and find all images
+    private void loadImagesFromFolder(Uri treeUri) {
+        imageList.clear();
+        DocumentFile pickedDir = DocumentFile.fromTreeUri(this, treeUri);
+
+        if (pickedDir != null) {
+            for (DocumentFile file : pickedDir.listFiles()) {
+                // If the file is an image, add it to our list
+                if (file.isFile() && file.getType() != null && file.getType().startsWith("image/")) {
+                    imageList.add(file.getUri());
+                }
+            }
+        }
+
+        // Grid refresh itself with the new images
+        gridAdapter.notifyDataSetChanged();
+
+        if (imageList.isEmpty()) {
+            Toast.makeText(this, "No images found in this folder", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    // Custom Adapter to put Images into the GridView
+    private class ImageAdapter extends BaseAdapter {
+        private Context context;
+        private ArrayList<Uri> imageUris;
+
+        public ImageAdapter(Context context, ArrayList<Uri> imageUris) {
+            this.context = context;
+            this.imageUris = imageUris;
+        }
+
+        @Override
+        public int getCount() { return imageUris.size(); }
+
+        @Override
+        public Object getItem(int position) { return imageUris.get(position); }
+
+        @Override
+        public long getItemId(int position) { return position; }
+
+        @Override
+        public View getView(int position, View convertView, ViewGroup parent) {
+            ImageView imageView;
+            if (convertView == null) {
+                // New ImageView for each item referenced by the Adapter
+                imageView = new ImageView(context);
+                imageView.setLayoutParams(new GridView.LayoutParams(300, 300));
+                imageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
+                imageView.setPadding(8, 8, 8, 8);
+            } else {
+                imageView = (ImageView) convertView;
+            }
+
+            // Set the image from the Uri
+            imageView.setImageURI(imageUris.get(position));
+            return imageView;
+        }
     }
 }
