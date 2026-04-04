@@ -78,6 +78,14 @@ public class MainActivity extends AppCompatActivity {
         gridAdapter = new ImageAdapter(this, imageList);
         photoGrid.setAdapter(gridAdapter);
 
+        // Make Grid Images Clickable
+        photoGrid.setOnItemClickListener((parent, view, position, id) -> {
+            Uri clickedUri = imageList.get(position);
+            Intent detailsIntent = new Intent(MainActivity.this, ImageDetailsActivity.class);
+            detailsIntent.putExtra("clicked_image_uri", clickedUri.toString());
+            startActivity(detailsIntent);
+        });
+
         // Take Photo Button
         btnOpenCam.setOnClickListener(v -> {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
@@ -87,7 +95,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // --- PART B: Pick Folder Button ---
+        // Pick Folder Button
         btnPickFolder.setOnClickListener(v -> {
             Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
             folderPickerLauncher.launch(intent);
