@@ -29,6 +29,7 @@ public class MainActivity extends AppCompatActivity {
     //Variables
     private GridView photoGrid;
     private Uri newImageUri;
+    private Uri currentFolderUri;
 
     private ArrayList<Uri> imageList = new ArrayList<>();
     private ImageAdapter gridAdapter;
@@ -60,6 +61,7 @@ public class MainActivity extends AppCompatActivity {
             result -> {
                 if (result.getResultCode() == RESULT_OK && result.getData() != null) {
                     Uri treeUri = result.getData().getData();
+                    currentFolderUri = treeUri;
                     loadImagesFromFolder(treeUri);
                 }
             }
@@ -100,6 +102,14 @@ public class MainActivity extends AppCompatActivity {
             Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
             folderPickerLauncher.launch(intent);
         });
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (currentFolderUri != null) {
+            loadImagesFromFolder(currentFolderUri);
+        }
     }
 
     private void launchCamera() {

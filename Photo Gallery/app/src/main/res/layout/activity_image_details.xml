@@ -47,5 +47,17 @@
             android:layout_height="wrap_content"
             android:textSize="16sp"/>
 
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="24dp" />
+
+        <Button
+            android:id="@+id/btnDeleteImage"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Delete Image"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#D32F2F" />
+
     </LinearLayout>
 </LinearLayout>
